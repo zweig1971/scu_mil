@@ -34,6 +34,11 @@ private :
 
 	data_scu scu_info;
 
+	int mil_status_read();
+	void mil_timer_wait();
+	bool mil_write_wait(void);
+	bool mil_write_read(void);
+
 	int open_scu();
 	int close_scu();
 	int find_mil();

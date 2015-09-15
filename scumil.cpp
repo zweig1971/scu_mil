@@ -21,6 +21,34 @@ scu_mil::~scu_mil(void)
 {
 }
 
+// liest das mil-statusregister
+// ---------------------
+int mil_status_read()
+{
+}
+
+// zieht den timer auf der scu/mil
+// auf in us & kommt erst nach ablauf 
+// zurueck
+// ---------------------
+void mil_timer_wait()
+{
+}
+
+// Prüft ob MilBus wieder bereit ist, dabei
+// wird ein Timer aufgezogen
+// ---------------------
+bool mil_write_wait(void)
+{
+}
+
+// Prüft ob MilBus wieder bereit ist, dabei
+// wird ein Timer aufgezogen
+// ---------------------
+bool mil_write_read(void)
+{
+}
+
 // oeffnet ein socket & die device
 // ---------------------
 int scu_mil::open_scu()
