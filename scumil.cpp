@@ -23,30 +23,59 @@ scu_mil::~scu_mil(void)
 
 // liest das mil-statusregister
 // ---------------------
-int mil_status_read()
+int scu_mil::mil_status_read(int &mil_status)
 {
+	eb_data_t milstatus;
+
+	if((eb_device_read(scu_info.device, scu_info.mil_base+mil_wr_rd_status, EB_BIG_ENDIAN|EB_DATA32, &milstatus, 0, eb_block)) != EB_OK)
+	return Timer_Error;
+
+	mil_status = int(milstatus);
+
+	return StatusOK;
 }
 
 // zieht den timer auf der scu/mil
 // auf in us & kommt erst nach ablauf 
-// zurueck
+// zurueck in us
 // ---------------------
-void mil_timer_wait()
+int scu_mil::mil_timer_wait(int time)
 {
+	
+	int MilData = 1;
+	eb_data_t readtimer = 0;
+	int status = 0;
+
+	// timer ruecksetzen
+	if ((status = eb_device_write(scu_info.device, scu_info.mil_base+rd_clr_wait_timer, EB_BIG_ENDIAN|EB_DATA32, MilData, 0, eb_block)) != EB_OK)
+	return Timer_Error;
+
+
+	// timer abfragen bis wert erreicht
+	do
+	{
+		eb_device_read(scu_info.device, scu_info.mil_base+rd_clr_wait_timer, EB_BIG_ENDIAN|EB_DATA32, &readtimer, 0, eb_block);	
+	}
+	while(int(readtimer) < time);
+
+	return StatusOK;
+
 }
 
 // Prüft ob MilBus wieder bereit ist, dabei
 // wird ein Timer aufgezogen
 // ---------------------
-bool mil_write_wait(void)
+bool scu_mil::mil_write_wait(void)
 {
+	return true;
 }
 
 // Prüft ob MilBus wieder bereit ist, dabei
 // wird ein Timer aufgezogen
 // ---------------------
-bool mil_write_read(void)
+bool scu_mil::mil_write_read(void)
 {
+	return true;
 }
 
 // oeffnet ein socket & die device
@@ -166,6 +195,7 @@ int scu_mil::irq_disable()
         return 0;
 }
 
+// wertet die fehler nummer aus
 string scu_mil::scu_milerror(int status)
 {
         string ErrorMessage;
@@ -187,7 +217,7 @@ string scu_mil::scu_milerror(int status)
 	return ErrorMessage;
 }
 
-
+// oeffnet scu/milbus
 int scu_mil::scu_milbusopen(const char adress[], int &errorstatus)
 {
 
@@ -211,7 +241,7 @@ int scu_mil::scu_milbusopen(const char adress[], int &errorstatus)
   return StatusOK;
 }
 
-
+// schliesse scu/milbus
 int scu_mil::scu_milbusclose(int &errorstatus)
 {
   int status = 0;
@@ -224,5 +254,26 @@ int scu_mil::scu_milbusclose(int &errorstatus)
  }
   return StatusOK;
 }
+
+// testet den mil status ab
+bool scu_mil::scu_milstatustest(int statusbit, int &errorstatus)
+{
+	int  mil_stat = 0;
+	int  status = 0;
+
+	status = mil_status_read(mil_stat);
+	
+	if (status != StatusOK){
+    		errorstatus = (errorstatus | status);
+    		return false;
+	}
+
+	if((mil_stat & statusbit)== statusbit)
+		return true;
+	else
+		return false;	
+}
+
+
 
 

@@ -34,8 +34,8 @@ private :
 
 	data_scu scu_info;
 
-	int mil_status_read();
-	void mil_timer_wait();
+	int mil_status_read(int &mil_status);
+	int mil_timer_wait(int time);
 	bool mil_write_wait(void);
 	bool mil_write_read(void);
 
@@ -68,4 +68,5 @@ public:
 
 	int scu_milbusopen(const char adress[], int &errorstatus);
 	int scu_milbusclose(int &errorstatus);
+	bool scu_milstatustest(int statusbit, int &errorstatus);
 };
