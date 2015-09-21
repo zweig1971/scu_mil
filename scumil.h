@@ -29,34 +29,36 @@ private :
 		eb_socket_t socket;
 		eb_device_t device;
 		eb_address_t mil_base;
+		bool scu_connected;
 	};
 
 
 	data_scu scu_info;
 
-	int mil_status_read(int &mil_status);
-	int mil_timer_wait(int time);
+	DWORD mil_status_read(WORD &mil_status);
+	DWORD mil_timer_wait(WORD time);
 	bool mil_write_wait(void);
-	bool mil_write_read(void);
+	bool mil_read_wait(void);
+	bool mil_test_status(WORD statusbit);
 
-	int open_scu();
-	int close_scu();
-	int find_mil();
+	DWORD open_scu();
+	DWORD close_scu();
+	DWORD find_mil();
 
-	int fct_send();
-	int milbus_write();
-	int milbus_read();
+	DWORD fct_send();
+	DWORD milbus_write();
+	DWORD milbus_read();
 	
-	int event_fifo_read();
-	int event_timer_read();
-	int event_filter_read();
-	int event_filter_set();
+	DWORD event_fifo_read();
+	DWORD event_timer_read();
+	DWORD event_filter_read();
+	DWORD event_filter_set();
 	
-	int irq_mask_read();
-	int irq_mask_write();
+	DWORD irq_mask_read();
+	DWORD irq_mask_write();
 
-	int irq_enable();
-	int irq_disable();
+	DWORD irq_enable();
+	DWORD irq_disable();
 
 
 public:
@@ -64,9 +66,10 @@ public:
 	scu_mil(void);
 	~scu_mil(void);
 
-	string scu_milerror(int status);
+	string scu_milerror(DWORD status);
 
-	int scu_milbusopen(const char adress[], int &errorstatus);
-	int scu_milbusclose(int &errorstatus);
-	bool scu_milstatustest(int statusbit, int &errorstatus);
+	DWORD scu_milbusopen(const char adress[], DWORD &errorstatus);
+	DWORD scu_milbusclose(DWORD &errorstatus);
+	bool scu_milstatustest(WORD statusbit, DWORD &errorstatus);
+	DWORD scu_timer_wait(DWORD time, DWORD &errorstatus);
 };

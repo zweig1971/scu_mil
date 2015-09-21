@@ -15,15 +15,29 @@
 #define vendor  0x0000000000000651
 #define product 0x35aa6b96
 
+// DatenTypen
+//-----------------
+typedef unsigned char BYTE;
+typedef unsigned short int WORD;
+typedef unsigned int DWORD;
+
+// timer
+// --------------
+#define WaitMilBusReadTimeOut   10      
+#define WaitMilBusWriteTimeOut  50
+
 // Fehlermeldungen 
 //----------------
-#define StatusOK		0x0
-#define SocketOpen_Error	0x1
-#define DeviceOpen_Error	0x2
-#define DeviceClose_Error       0x4
-#define SocketClose_Error       0x8
-#define BaseAdress_Error        0x10
-#define Timer_Error		0x20
+#define status_ok		0x0
+#define socketopen_error	0x1
+#define deviceopen_error	0x2
+#define deviceclose_error       0x4
+#define socketclose_error       0x8
+#define baseadress_error        0x10
+#define device_allrdyopen	0x20
+#define timer_error		0x40
+#define timeout_write		0x80
+#define timeout_read		0x100
 
 // Bitmasken Status 
 //----------------

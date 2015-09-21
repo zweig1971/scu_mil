@@ -15,6 +15,7 @@ scu_mil::scu_mil(void)
   scu_info.socket = 0;
   scu_info.device = 0;
   scu_info.mil_base = 0;
+  scu_info.scu_connected = false;
 }
 
 scu_mil::~scu_mil(void)
@@ -23,23 +24,23 @@ scu_mil::~scu_mil(void)
 
 // liest das mil-statusregister
 // ---------------------
-int scu_mil::mil_status_read(int &mil_status)
+DWORD scu_mil::mil_status_read(WORD &mil_status)
 {
 	eb_data_t milstatus;
 
 	if((eb_device_read(scu_info.device, scu_info.mil_base+mil_wr_rd_status, EB_BIG_ENDIAN|EB_DATA32, &milstatus, 0, eb_block)) != EB_OK)
-	return Timer_Error;
+	return timer_error;
 
-	mil_status = int(milstatus);
+	mil_status = WORD(milstatus);
 
-	return StatusOK;
+	return status_ok;
 }
 
 // zieht den timer auf der scu/mil
 // auf in us & kommt erst nach ablauf 
 // zurueck in us
 // ---------------------
-int scu_mil::mil_timer_wait(int time)
+DWORD scu_mil::mil_timer_wait(WORD time)
 {
 	
 	int MilData = 1;
@@ -48,7 +49,7 @@ int scu_mil::mil_timer_wait(int time)
 
 	// timer ruecksetzen
 	if ((status = eb_device_write(scu_info.device, scu_info.mil_base+rd_clr_wait_timer, EB_BIG_ENDIAN|EB_DATA32, MilData, 0, eb_block)) != EB_OK)
-	return Timer_Error;
+	return timer_error;
 
 
 	// timer abfragen bis wert erreicht
@@ -58,64 +59,114 @@ int scu_mil::mil_timer_wait(int time)
 	}
 	while(int(readtimer) < time);
 
-	return StatusOK;
+	return status_ok;
 
 }
 
-// Prüft ob MilBus wieder bereit ist, dabei
-// wird ein Timer aufgezogen
+
+// Prüft ob MilBus sendebereit ist
 // ---------------------
 bool scu_mil::mil_write_wait(void)
 {
-	return true;
+	// Pruefen mil-bus bereit
+	if(mil_test_status(mil_trm_rdy))
+	{
+		return(true);
+	}
+
+	// timer aufziehen
+	mil_timer_wait(WaitMilBusWriteTimeOut);
+
+	// erneut pruefen ob mil-bus bereit
+        if(mil_test_status(mil_trm_rdy))
+        {
+                return(true);
+        }
+
+	// timeout
+	return (false);
 }
 
-// Prüft ob MilBus wieder bereit ist, dabei
-// wird ein Timer aufgezogen
+// Prüft ob daten am MilBus bereitstehen
 // ---------------------
-bool scu_mil::mil_write_read(void)
+bool scu_mil::mil_read_wait(void)
 {
-	return true;
+        // Pruefen mil-bus bereit
+        if(mil_test_status(mil_rcv_rdy))
+        {
+                return(true);
+        }
+
+        // timer aufziehen
+        mil_timer_wait(WaitMilBusReadTimeOut);
+
+        // erneut pruefen ob mil-bus bereit
+        if(mil_test_status(mil_rcv_rdy))
+        {
+                return(true);
+        }
+
+        // timeout
+        return (false);
+}
+
+// Prueft status nach einem bestimten bit ab
+// ---------------------
+bool scu_mil::mil_test_status(WORD statusbit)
+{
+        WORD  mil_stat = status_ok;
+        DWORD  status = status_ok;
+
+        status = mil_status_read(mil_stat);
+
+        if (status != status_ok){
+                return false;
+        }
+
+        if((mil_stat & statusbit)== statusbit)
+                return true;
+        else
+                return false;
 }
 
 // oeffnet ein socket & die device
 // ---------------------
-int scu_mil::open_scu()
+DWORD scu_mil::open_scu()
 {
 	eb_status_t status;
 
 	// open socket
 	if ((status = eb_socket_open(EB_ABI_CODE,0, EB_ADDR32|EB_DATA32, &scu_info.socket)) != EB_OK)
-	return SocketOpen_Error;
+	return socketopen_error;
 
 	// open device
 	if ((status = eb_device_open(scu_info.socket,scu_info.scu_adress, EB_ADDR32|EB_DATA32, 3, &scu_info.device)) != EB_OK)
-	return DeviceOpen_Error;
+	return deviceopen_error;
 
-	return StatusOK;
+	return status_ok;
 }
 
 // schliesst das socket & die device
 // ---------------------
-int scu_mil::close_scu()
+DWORD scu_mil::close_scu()
 {
 	eb_status_t status;
 
   	// close device
 	if((status = eb_device_close(scu_info.device)) != EB_OK)
-	return DeviceClose_Error;
+	return deviceclose_error;
   
  	// close socket
   	if((status = eb_socket_close(scu_info.socket)) != EB_OK)
-	return SocketClose_Error;
+	return socketclose_error;
 
-	return StatusOK;
+	return status_ok;
 }
 
 // sucht die baseadresse vom milbus
 // auf der device & gibt sie zurück
 // ---------------------
-int scu_mil::find_mil()
+DWORD scu_mil::find_mil()
 {
 	eb_status_t status;
 	struct sdb_device sdbDevice;
@@ -124,156 +175,182 @@ int scu_mil::find_mil()
 	sdbDevice.sdb_component.addr_first = 0;
 	
 	if ((status = eb_sdb_find_by_identity(scu_info.device, vendor, product, &sdbDevice, &nDevices)) != EB_OK)
-	return BaseAdress_Error;
+	return baseadress_error;
 
 	scu_info.mil_base = sdbDevice.sdb_component.addr_first;
 
-        return StatusOK;
+        return status_ok;
 }
 
 // schreibt einen funktionscode auf
 // den milbus
 // ---------------------
-int scu_mil::fct_send()
+DWORD scu_mil::fct_send()
 {
+	
         return 0;
 }
 
 // schreibt ein datum auf den milbus
 // ---------------------
-int scu_mil::milbus_write()
+DWORD scu_mil::milbus_write()
 {
         return 0;
 }
 
 // liest ein datum vom milbus
 // ---------------------
-int scu_mil::milbus_read()
+DWORD scu_mil::milbus_read()
 {
         return 0;
 }
 
 // liest das eventfifo der scu aus
 // ---------------------        
-int scu_mil::event_fifo_read()
+DWORD scu_mil::event_fifo_read()
 {
         return 0;
 }
 
-int scu_mil::event_timer_read()
+DWORD scu_mil::event_timer_read()
 {
         return 0;
 }
 
-int scu_mil::event_filter_read()
+DWORD scu_mil::event_filter_read()
 {
         return 0;
 }
 
-int scu_mil::event_filter_set()
+DWORD scu_mil::event_filter_set()
 {
         return 0;
 }
         
-int scu_mil::irq_mask_read()
+DWORD scu_mil::irq_mask_read()
 {
         return 0;
 }
 
-int scu_mil::irq_mask_write()
+DWORD scu_mil::irq_mask_write()
 {
         return 0;
 }
 
-int scu_mil::irq_enable()
+DWORD scu_mil::irq_enable()
 {
         return 0;
 }
 
-int scu_mil::irq_disable()
+DWORD scu_mil::irq_disable()
 {
         return 0;
 }
 
 // wertet die fehler nummer aus
-string scu_mil::scu_milerror(int status)
+string scu_mil::scu_milerror(DWORD status)
 {
         string ErrorMessage;
 
         switch (status)
         {
-        case StatusOK:
+        case status_ok:
                 ErrorMessage = "Status OK";
                 break;
-        case SocketOpen_Error:
-                ErrorMessage = "Open socket failure";
+        case socketopen_error:
+                ErrorMessage = "Open socket to scu failure";
                 break;
-        case DeviceOpen_Error:
-                ErrorMessage = "Open device failure";
+        case deviceopen_error:
+                ErrorMessage = "Open scu-device failure";
                 break;
-
-
+        case deviceclose_error:
+                ErrorMessage = "Close scu-device failure";
+                break;
+        case socketclose_error:
+                ErrorMessage = "Close socket to scu failure";
+                break;
+        case baseadress_error:
+                ErrorMessage = "Cant find mil-baseadress on scu-device";
+                break;
+        case device_allrdyopen:
+                ErrorMessage = "Scu-device allready open";
+                break;
+        case timer_error:
+                ErrorMessage = "Can not set the timer on scu-device";
+                break;
+        case timeout_write:
+                ErrorMessage = "Timeout: mil-bus too busy to transmit";
+                break;
+        case timeout_read:
+                ErrorMessage = "Timeout: no data from mil-bus received";
+                break;
 	}
 	return ErrorMessage;
 }
 
 // oeffnet scu/milbus
-int scu_mil::scu_milbusopen(const char adress[], int &errorstatus)
+DWORD scu_mil::scu_milbusopen(const char adress[], DWORD &errorstatus)
 {
+  DWORD status = status_ok;
 
-  int status = 0;
+  if(scu_info.scu_connected)
+  return device_allrdyopen;	
 
   strcpy (scu_info.scu_adress, adress);
 
   status=open_scu();
 
-  if (status != StatusOK) {
+  if (status != status_ok) {
     errorstatus = (errorstatus | status);
     return status;
   };
 
   status=find_mil();
-  if (status != StatusOK) {
+  if (status != status_ok) {
     errorstatus = (errorstatus | status);
     return status;
   };
 
-  return StatusOK;
+  scu_info.scu_connected = true;
+  return status_ok;
 }
 
 // schliesse scu/milbus
-int scu_mil::scu_milbusclose(int &errorstatus)
+DWORD scu_mil::scu_milbusclose(DWORD &errorstatus)
 {
-  int status = 0;
+  DWORD status = status_ok;
 
   status=close_scu();
 
-  if (status != StatusOK){
+  if (status != status_ok){
     errorstatus = (errorstatus | status);
     return status;
  }
-  return StatusOK;
+
+  scu_info.scu_connected = false;
+  return status_ok;
 }
 
 // testet den mil status ab
-bool scu_mil::scu_milstatustest(int statusbit, int &errorstatus)
+bool scu_mil::scu_milstatustest(WORD statusbit, DWORD &errorstatus)
 {
-	int  mil_stat = 0;
-	int  status = 0;
-
-	status = mil_status_read(mil_stat);
-	
-	if (status != StatusOK){
-    		errorstatus = (errorstatus | status);
-    		return false;
-	}
-
-	if((mil_stat & statusbit)== statusbit)
-		return true;
-	else
-		return false;	
+	return (true);
 }
 
+
+// zieht einen timer auf & kommt nach ablauf zurueck
+DWORD scu_mil::scu_timer_wait(DWORD time, DWORD &errorstatus)
+{
+	DWORD status = status_ok;
+	
+	status = mil_timer_wait(time);
+
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return false;
+        }
+	return status_ok;
+}
 
 
 
