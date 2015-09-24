@@ -68,8 +68,11 @@ DWORD scu_mil::mil_timer_wait(WORD time)
 // ---------------------
 bool scu_mil::mil_write_wait(void)
 {
+
+	DWORD status;
+
 	// Pruefen mil-bus bereit
-	if(mil_test_status(mil_trm_rdy))
+	if(mil_test_status(mil_trm_rdy, status))
 	{
 		return(true);
 	}
@@ -78,7 +81,7 @@ bool scu_mil::mil_write_wait(void)
 	mil_timer_wait(WaitMilBusWriteTimeOut);
 
 	// erneut pruefen ob mil-bus bereit
-        if(mil_test_status(mil_trm_rdy))
+        if(mil_test_status(mil_trm_rdy, status))
         {
                 return(true);
         }
@@ -91,8 +94,11 @@ bool scu_mil::mil_write_wait(void)
 // ---------------------
 bool scu_mil::mil_read_wait(void)
 {
+
+	DWORD status;
+
         // Pruefen mil-bus bereit
-        if(mil_test_status(mil_rcv_rdy))
+        if(mil_test_status(mil_rcv_rdy, status))
         {
                 return(true);
         }
@@ -101,7 +107,7 @@ bool scu_mil::mil_read_wait(void)
         mil_timer_wait(WaitMilBusReadTimeOut);
 
         // erneut pruefen ob mil-bus bereit
-        if(mil_test_status(mil_rcv_rdy))
+        if(mil_test_status(mil_rcv_rdy, status))
         {
                 return(true);
         }
@@ -110,16 +116,18 @@ bool scu_mil::mil_read_wait(void)
         return (false);
 }
 
-// Prueft status nach einem bestimten bit ab
+// Prueft status nach einem bit ab
 // ---------------------
-bool scu_mil::mil_test_status(WORD statusbit)
+bool scu_mil::mil_test_status(WORD statusbit, DWORD &errorstatus)
 {
         WORD  mil_stat = status_ok;
-        DWORD  status = status_ok;
+        DWORD status = status_ok;
 
+	// lese status
         status = mil_status_read(mil_stat);
 
         if (status != status_ok){
+		errorstatus = (errorstatus | status);
                 return false;
         }
 
@@ -182,27 +190,46 @@ DWORD scu_mil::find_mil()
         return status_ok;
 }
 
-// schreibt einen funktionscode auf
-// den milbus
-// ---------------------
-DWORD scu_mil::fct_send()
-{
-	
-        return 0;
-}
-
 // schreibt ein datum auf den milbus
 // ---------------------
-DWORD scu_mil::milbus_write()
+DWORD scu_mil::milbus_write(WORD mildata)
 {
-        return 0;
+        eb_status_t status;
+
+	// schreibe daten
+  	if ((status = eb_device_write(scu_info.device, scu_info.mil_base+mil_rd_wr_data, EB_BIG_ENDIAN|EB_DATA32, int(mildata), 0, eb_block)) != EB_OK)
+	return mil_write_error;
+
+        return status_ok;
+}
+
+// schreibt einen cmd (functioscode) auf den milbus
+// ---------------------
+DWORD scu_mil::milbus_write_cmd(int cmd)
+{
+	eb_status_t status;
+
+	// schreibe cmd
+	if ((status = eb_device_write(scu_info.device, scu_info.mil_base+mil_wr_cmd, EB_BIG_ENDIAN|EB_DATA32, cmd, 0, eb_block)) != EB_OK)
+	return mil_write_cmd_error;
+
+	return status_ok;
 }
 
 // liest ein datum vom milbus
 // ---------------------
-DWORD scu_mil::milbus_read()
+DWORD scu_mil::milbus_read(WORD &mildata)
 {
-        return 0;
+	eb_data_t mil_rd_data = 0;
+	eb_status_t status;
+
+	//lese vom milbus
+	if ((status = eb_device_read(scu_info.device, scu_info.mil_base+mil_rd_wr_data, EB_BIG_ENDIAN|EB_DATA32, &mil_rd_data, 0, eb_block)) != EB_OK)
+	return mil_read_error;
+
+
+	mildata = WORD(mil_rd_data);
+        return status_ok;
 }
 
 // liest das eventfifo der scu aus
@@ -275,6 +302,9 @@ string scu_mil::scu_milerror(DWORD status)
         case device_allrdyopen:
                 ErrorMessage = "Scu-device allready open";
                 break;
+        case device_not_open:
+                ErrorMessage = "Scu-device not open";
+                break;
         case timer_error:
                 ErrorMessage = "Can not set the timer on scu-device";
                 break;
@@ -284,6 +314,16 @@ string scu_mil::scu_milerror(DWORD status)
         case timeout_read:
                 ErrorMessage = "Timeout: no data from mil-bus received";
                 break;
+        case mil_write_cmd_error:
+                ErrorMessage = "Write cmd to mil-bus failure";
+                break;
+        case mil_read_error:
+                ErrorMessage = "Read data from mil-bus failure";
+                break;
+        case mil_write_error:
+                ErrorMessage = "Write data to mil-bus failure";
+                break;
+
 	}
 	return ErrorMessage;
 }
@@ -318,31 +358,59 @@ DWORD scu_mil::scu_milbusopen(const char adress[], DWORD &errorstatus)
 // schliesse scu/milbus
 DWORD scu_mil::scu_milbusclose(DWORD &errorstatus)
 {
-  DWORD status = status_ok;
+	DWORD status = status_ok;
 
-  status=close_scu();
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
 
-  if (status != status_ok){
-    errorstatus = (errorstatus | status);
-    return status;
- }
+	// device close
+	status=close_scu();
 
-  scu_info.scu_connected = false;
-  return status_ok;
+	if (status != status_ok){
+	  errorstatus = (errorstatus | status);
+	  return status;
+ 	}
+
+	scu_info.scu_connected = false;
+	return status_ok;
 }
 
 // testet den mil status ab
 bool scu_mil::scu_milstatustest(WORD statusbit, DWORD &errorstatus)
 {
-	return (true);
-}
 
+	DWORD test_status = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
+
+	// bit pruefen
+	if(!(mil_test_status(statusbit, test_status))){
+		errorstatus = (errorstatus | test_status);
+		return false;
+	}
+
+	return true;
+}
 
 // zieht einen timer auf & kommt nach ablauf zurueck
 DWORD scu_mil::scu_timer_wait(DWORD time, DWORD &errorstatus)
 {
 	DWORD status = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
 	
+	// timer aufziehen
 	status = mil_timer_wait(time);
 
         if (status != status_ok){
@@ -352,5 +420,132 @@ DWORD scu_mil::scu_timer_wait(DWORD time, DWORD &errorstatus)
 	return status_ok;
 }
 
+// schreibt einen funktionscode auf
+// den milbus
+// ---------------------
+DWORD scu_mil::scu_milbus_write_cmd(BYTE funktionscode, BYTE ifkadresse, DWORD &errorstatus)
+{
+        int sendfunctioncode = 0;
+	DWORD status = status_ok;
 
+	// pruefen ob device offen
+	if(!(scu_info.scu_connected)){
+		errorstatus = (errorstatus | device_not_open);
+		return device_not_open;
+	}
+
+        // milbuspaket zusammenbasteln
+        sendfunctioncode = funktionscode;
+        sendfunctioncode = sendfunctioncode << 8;
+        sendfunctioncode = sendfunctioncode + ifkadresse;
+
+        // milbus prüfen ob sendebereit
+        if (!(mil_write_wait())){
+		errorstatus = (errorstatus | timeout_write);
+		return timeout_write;
+	}
+
+	// schreibe cmd auf milbus
+	status = milbus_write_cmd(sendfunctioncode);
+
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+        return status_ok;
+}
+
+// schreibt ein datum auf
+// den milbus
+// ---------------------
+DWORD scu_mil::scu_milbus_write_data(WORD data, DWORD &errorstatus)
+{
+
+	DWORD status = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
+
+        // milbus prüfen ob sendebereit
+        if (!(mil_write_wait()))
+        return timeout_write;
+
+        // schreibe daten auf milbus
+        status = milbus_write(data);
+		
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+        return status_ok;
+}
+
+// liest ein datum 
+// vom milbus
+// ---------------------
+DWORD scu_mil::scu_milbus_read_data(WORD &data, DWORD &errorstatus)
+{
+
+        DWORD status = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
+
+        // milbus auf daten pruefen
+        if (!(mil_read_wait()))
+        return timeout_read;
+
+        // lese daten vom  milbus
+        status = milbus_read(data);
+
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+	return status_ok;
+}
+
+
+DWORD scu_mil::scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
+{
+
+	DWORD status = status_ok;
+	DWORD errstatus = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
+
+	// schreibe datum auf milbus
+	status = scu_milbus_write_data( data, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+	// schreibe cmd auf milbus
+	status = scu_milbus_write_cmd(ifkfunktioncode, ifkadress, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+	// lese datum vom milbus
+	status = scu_milbus_read_data(data, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+	return status_ok;
+}
 

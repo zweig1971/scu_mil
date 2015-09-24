@@ -39,15 +39,15 @@ private :
 	DWORD mil_timer_wait(WORD time);
 	bool mil_write_wait(void);
 	bool mil_read_wait(void);
-	bool mil_test_status(WORD statusbit);
+	bool mil_test_status(WORD statusbit, DWORD &errorstatus);
 
 	DWORD open_scu();
 	DWORD close_scu();
 	DWORD find_mil();
 
-	DWORD fct_send();
-	DWORD milbus_write();
-	DWORD milbus_read();
+	DWORD milbus_write(WORD mildata);
+	DWORD milbus_write_cmd(int cmd);
+	DWORD milbus_read(WORD &mildata);
 	
 	DWORD event_fifo_read();
 	DWORD event_timer_read();
@@ -72,4 +72,9 @@ public:
 	DWORD scu_milbusclose(DWORD &errorstatus);
 	bool scu_milstatustest(WORD statusbit, DWORD &errorstatus);
 	DWORD scu_timer_wait(DWORD time, DWORD &errorstatus);
+	DWORD scu_milbus_write_cmd(BYTE funktionscode, BYTE ifkadresse, DWORD &errorstatus);
+	DWORD scu_milbus_write_data(WORD data, DWORD &errorstatus);
+	DWORD scu_milbus_read_data(WORD &data, DWORD &errorstatus);
+	DWORD scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus);
+
 };

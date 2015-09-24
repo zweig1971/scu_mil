@@ -35,9 +35,13 @@ typedef unsigned int DWORD;
 #define socketclose_error       0x8
 #define baseadress_error        0x10
 #define device_allrdyopen	0x20
-#define timer_error		0x40
-#define timeout_write		0x80
-#define timeout_read		0x100
+#define device_not_open		0x40
+#define timer_error		0x80
+#define timeout_write		0x100
+#define timeout_read		0x200
+#define mil_write_cmd_error	0x400
+#define mil_read_error		0x800
+#define mil_write_error		0x1000
 
 // Bitmasken Status 
 //----------------
