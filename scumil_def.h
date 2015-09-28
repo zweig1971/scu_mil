@@ -21,10 +21,18 @@ typedef unsigned char BYTE;
 typedef unsigned short int WORD;
 typedef unsigned int DWORD;
 
-// timer
+// Timer
 // --------------
 #define WaitMilBusReadTimeOut   10      
 #define WaitMilBusWriteTimeOut  50
+
+// Functionscodes
+// --------------
+#define Fct_Rd_Stat0		0xC0
+
+// sonstiges
+// --------------
+#define Fct_Rd_Stat0_AdrMask    0x00FF
 
 // Fehlermeldungen 
 //----------------
@@ -42,6 +50,7 @@ typedef unsigned int DWORD;
 #define mil_write_cmd_error	0x400
 #define mil_read_error		0x800
 #define mil_write_error		0x1000
+#define mil_ifknr_error		0x2000
 
 // Bitmasken Status 
 //----------------

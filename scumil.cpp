@@ -12,10 +12,10 @@
 
 scu_mil::scu_mil(void)
 {
-  scu_info.socket = 0;
-  scu_info.device = 0;
-  scu_info.mil_base = 0;
-  scu_info.scu_connected = false;
+  scu_info.socket	= 0;
+  scu_info.device	= 0;
+  scu_info.mil_base	= 0;
+  scu_info.scu_connected= false;
 }
 
 scu_mil::~scu_mil(void)
@@ -43,9 +43,9 @@ DWORD scu_mil::mil_status_read(WORD &mil_status)
 DWORD scu_mil::mil_timer_wait(WORD time)
 {
 	
-	int MilData = 1;
-	eb_data_t readtimer = 0;
-	int status = 0;
+	int MilData		= 1;
+	eb_data_t readtimer	= 0;
+	int status		= 0;
 
 	// timer ruecksetzen
 	if ((status = eb_device_write(scu_info.device, scu_info.mil_base+rd_clr_wait_timer, EB_BIG_ENDIAN|EB_DATA32, MilData, 0, eb_block)) != EB_OK)
@@ -179,8 +179,8 @@ DWORD scu_mil::find_mil()
 	eb_status_t status;
 	struct sdb_device sdbDevice;
 
-	int nDevices = 1;
-	sdbDevice.sdb_component.addr_first = 0;
+	int nDevices				= 1;
+	sdbDevice.sdb_component.addr_first	= 0;
 	
 	if ((status = eb_sdb_find_by_identity(scu_info.device, vendor, product, &sdbDevice, &nDevices)) != EB_OK)
 	return baseadress_error;
@@ -274,7 +274,7 @@ DWORD scu_mil::irq_disable()
         return 0;
 }
 
-// wertet die fehler nummer aus
+// wertet die fehlernummer aus
 string scu_mil::scu_milerror(DWORD status)
 {
         string ErrorMessage;
@@ -323,7 +323,9 @@ string scu_mil::scu_milerror(DWORD status)
         case mil_write_error:
                 ErrorMessage = "Write data to mil-bus failure";
                 break;
-
+        case mil_ifknr_error:
+                ErrorMessage = "Send/read ifk-nr not equal";
+                break;
 	}
 	return ErrorMessage;
 }
@@ -425,8 +427,8 @@ DWORD scu_mil::scu_timer_wait(DWORD time, DWORD &errorstatus)
 // ---------------------
 DWORD scu_mil::scu_milbus_write_cmd(BYTE funktionscode, BYTE ifkadresse, DWORD &errorstatus)
 {
-        int sendfunctioncode = 0;
-	DWORD status = status_ok;
+        int sendfunctioncode	= 0;
+	DWORD status		= status_ok;
 
 	// pruefen ob device offen
 	if(!(scu_info.scu_connected)){
@@ -512,11 +514,11 @@ DWORD scu_mil::scu_milbus_read_data(WORD &data, DWORD &errorstatus)
 	return status_ok;
 }
 
-
+//schreibt ein datum an eine ifk
 DWORD scu_mil::scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
 {
 
-	DWORD status = status_ok;
+	DWORD status	= status_ok;
 	DWORD errstatus = status_ok;
 
         // pruefen ob device offen
@@ -548,4 +550,85 @@ DWORD scu_mil::scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktionc
 
 	return status_ok;
 }
+
+//liest ein datum von einer ifk
+DWORD scu_mil::scu_milbus_ifk_wr (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
+{
+
+        DWORD status	= status_ok;
+        DWORD errstatus = status_ok;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return device_not_open;
+        }
+
+        // schreibe cmd auf milbus
+        status = scu_milbus_write_cmd(ifkfunktioncode, ifkadress, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+        // lese datum vom milbus
+        status = scu_milbus_read_data(data, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return status;
+        }
+
+	return status_ok;
+}
+
+//prueft ob die ifk online ist
+bool scu_mil::scu_milbus_ifk_on (BYTE cardnr, BYTE ifkadress, BYTE returnifkad, DWORD &errorstatus)
+{
+
+        DWORD status		= status_ok;
+        DWORD errstatus		= status_ok;
+
+        WORD ReadAdress		= 0;
+
+        // pruefen ob device offen
+        if(!(scu_info.scu_connected)){
+                errorstatus = (errorstatus | device_not_open);
+                return false;
+        }
+
+        // schreibe cmd auf milbus
+        status = scu_milbus_write_cmd(Fct_Rd_Stat0, ifkadress, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return false;
+        }
+
+        // lese datum vom milbus
+        status = scu_milbus_read_data(ReadAdress, errstatus);
+        if (status != status_ok){
+                errorstatus = (errorstatus | status);
+                return false;
+        }
+
+        // Bei C0-Status Highbyte wegmaskieren
+        ReadAdress = ReadAdress & Fct_Rd_Stat0_AdrMask;
+
+	// beide nummern vergleichen -> muessen gleich sein
+	if (ReadAdress != ifkadress)
+	{
+                errorstatus = (errorstatus | mil_ifknr_error);
+                return false;
+	}
+
+        return true;
+}
+
+
+
+
+
+
+
+
+
 
