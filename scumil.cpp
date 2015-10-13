@@ -9,6 +9,7 @@
 
 #include "scumil.h"
 #include "scumil_def.h"
+#include <bitset>
 
 scu_mil::scu_mil(void)
 {
@@ -38,7 +39,6 @@ DWORD scu_mil::mil_status_read(WORD &mil_status)
 
 // zieht den timer auf der scu/mil
 // auf in us & kommt erst nach ablauf 
-// zurueck in us
 // ---------------------
 DWORD scu_mil::mil_timer_wait(WORD time)
 {
@@ -125,16 +125,28 @@ bool scu_mil::mil_test_status(WORD statusbit, DWORD &errorstatus)
 
 	// lese status
         status = mil_status_read(mil_stat);
+	
+/*	cout<<"Mil status :";
+	std::bitset<16> y(mil_stat);
+	std::bitset<16> v(statusbit);
+	std::cout << y <<" & "<<v<<endl;
 
+	printf("HEX : 0x%x & 0x%x \n", mil_stat,statusbit);
+*/
         if (status != status_ok){
 		errorstatus = (errorstatus | status);
                 return false;
         }
 
-        if((mil_stat & statusbit)== statusbit)
+        if((mil_stat & statusbit)== statusbit){
+
+//		cout<<"TRUE"<<endl;	
                 return true;
-        else
-                return false;
+	}
+        else{
+//		cout<<"FALSE"<<endl;
+	        return false;
+	}
 }
 
 // oeffnet ein socket & die device
@@ -515,7 +527,7 @@ DWORD scu_mil::scu_milbus_read_data(WORD &data, DWORD &errorstatus)
 }
 
 //schreibt ein datum an eine ifk
-DWORD scu_mil::scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
+DWORD scu_mil::scu_milbus_ifk_wr (BYTE ifkadress, BYTE ifkfunktioncode, WORD data, DWORD &errorstatus)
 {
 
 	DWORD status	= status_ok;
@@ -541,18 +553,18 @@ DWORD scu_mil::scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktionc
                 return status;
         }
 
-	// lese datum vom milbus
+/*	// lese datum vom milbus
 	status = scu_milbus_read_data(data, errstatus);
         if (status != status_ok){
                 errorstatus = (errorstatus | status);
                 return status;
-        }
+        }*/
 
 	return status_ok;
 }
 
 //liest ein datum von einer ifk
-DWORD scu_mil::scu_milbus_ifk_wr (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
+DWORD scu_mil::scu_milbus_ifk_rd (BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus)
 {
 
         DWORD status	= status_ok;
@@ -582,7 +594,7 @@ DWORD scu_mil::scu_milbus_ifk_wr (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktionc
 }
 
 //prueft ob die ifk online ist
-bool scu_mil::scu_milbus_ifk_on (BYTE cardnr, BYTE ifkadress, BYTE returnifkad, DWORD &errorstatus)
+bool scu_mil::scu_milbus_ifk_on (BYTE ifkadress, WORD &returnifkad, DWORD &errorstatus)
 {
 
         DWORD status		= status_ok;
@@ -612,6 +624,7 @@ bool scu_mil::scu_milbus_ifk_on (BYTE cardnr, BYTE ifkadress, BYTE returnifkad, 
 
         // Bei C0-Status Highbyte wegmaskieren
         ReadAdress = ReadAdress & Fct_Rd_Stat0_AdrMask;
+	returnifkad = ReadAdress;
 
 	// beide nummern vergleichen -> muessen gleich sein
 	if (ReadAdress != ifkadress)

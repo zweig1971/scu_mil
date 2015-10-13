@@ -75,7 +75,7 @@ public:
 	DWORD scu_milbus_write_cmd(BYTE funktionscode, BYTE ifkadresse, DWORD &errorstatus);
 	DWORD scu_milbus_write_data(WORD data, DWORD &errorstatus);
 	DWORD scu_milbus_read_data(WORD &data, DWORD &errorstatus);
-	DWORD scu_milbus_ifk_rd (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus);
-	DWORD scu_milbus_ifk_wr (BYTE cardnr, BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus);
-	bool scu_milbus_ifk_on (BYTE cardnr, BYTE ifkadress, BYTE returnifkad, DWORD &errorstatus);
+	DWORD scu_milbus_ifk_rd (BYTE ifkadress, BYTE ifkfunktioncode, WORD &data, DWORD &errorstatus);
+	DWORD scu_milbus_ifk_wr (BYTE ifkadress, BYTE ifkfunktioncode, WORD data, DWORD &errorstatus);
+	bool scu_milbus_ifk_on (BYTE ifkadress, WORD &returnifkad, DWORD &errorstatus);
 };
